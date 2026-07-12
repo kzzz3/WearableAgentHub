@@ -1,0 +1,17 @@
+﻿{
+  "name": "wearable-agent-hub",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @wearable/glasses-sim dev",
+    "dev:all": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "prettier": "^3.4.0",
+    "@changesets/cli": "^2.27.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
