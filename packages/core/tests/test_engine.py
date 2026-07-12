@@ -1,6 +1,6 @@
-"""Tests for AgentEngine."""
-import pytest
+﻿"""Tests for AgentEngine."""
 import json
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.engine.agent_engine import AgentEngine, SYSTEM_PROMPT
 
@@ -15,23 +15,40 @@ def engine():
         return eng
 
 
+def _mock_tool_message(name: str, arguments: dict):
+    mock_response = MagicMock()
+    mock_message = MagicMock()
+    mock_message.tool_calls = [MagicMock()]
+    mock_message.tool_calls[0].function.name = name
+    mock_message.tool_calls[0].function.arguments = json.dumps(arguments)
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message = mock_message
+    return mock_response
+
+
+def _mock_text_message(payload: dict):
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(payload)
+    return mock_response
+
+
 class TestAgentEngine:
     @pytest.mark.asyncio
     async def test_process_returns_structured(self, engine):
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "type": "text_reply",
-            "content": "Hello!"
-        })
-        engine.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        engine.route_intent = AsyncMock(return_value=("direct_reply", {"message": "hi"}))
+        engine.client.chat.completions.create = AsyncMock(
+            return_value=_mock_text_message({"type": "text_reply", "content": "Hello!"})
+        )
 
         result = await engine.process("hi")
         assert result["structured"]["type"] == "text_reply"
         assert result["structured"]["content"] == "Hello!"
+        assert result["source"] == "local"
 
     @pytest.mark.asyncio
     async def test_process_handles_llm_error(self, engine):
+        engine.route_intent = AsyncMock(return_value=("direct_reply", {"message": "hi"}))
         engine.client.chat.completions.create = AsyncMock(side_effect=Exception("API down"))
 
         result = await engine.process("hi")
@@ -40,13 +57,10 @@ class TestAgentEngine:
 
     @pytest.mark.asyncio
     async def test_session_history(self, engine):
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "type": "text_reply",
-            "content": "reply"
-        })
-        engine.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        engine.route_intent = AsyncMock(return_value=("direct_reply", {"message": "x"}))
+        engine.client.chat.completions.create = AsyncMock(
+            return_value=_mock_text_message({"type": "text_reply", "content": "reply"})
+        )
 
         await engine.process("msg1", session_id="test")
         await engine.process("msg2", session_id="test")
@@ -72,3 +86,21 @@ class TestAgentEngine:
         assert messages[0]["content"] == SYSTEM_PROMPT
         assert messages[-1]["role"] == "user"
         assert messages[-1]["content"] == "test input"
+
+    @pytest.mark.asyncio
+    async def test_route_intent_returns_direct_reply_on_failure(self, engine):
+        engine.client.chat.completions.create = AsyncMock(side_effect= Exception("routing failed"))
+
+        name, args = await engine.route_intent("hello")
+        assert name == "direct_reply"
+        assert args["message"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_route_intent_parses_tool_call(self, engine):
+        engine.client.chat.completions.create = AsyncMock(
+            return_value=_mock_tool_message("delegate_translate", {"message": "translate hi"})
+        )
+
+        name, args = await engine.route_intent("translate hi")
+        assert name == "delegate_translate"
+        assert args["message"] == "translate hi"

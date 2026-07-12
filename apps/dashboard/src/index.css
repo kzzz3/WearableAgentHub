@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #8888aa #1a1a2e;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #1a1a2e;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #8888aa;
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #00d4ff;
+  }
+}
+
+@layer components {
+  .hud-card {
+    @apply bg-hud-card border border-[#2a2a4a] rounded-lg p-4
+           hover:border-hud-accent/30 transition-colors duration-200;
+  }
+
+  .hud-glow {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+  }
+
+  .hud-table-row {
+    @apply border-b border-[#2a2a4a] hover:bg-[#22223a] transition-colors duration-150;
+  }
+
+  .hud-table-row:nth-child(even) {
+    @apply bg-[#15152a];
+  }
+
+  .hud-btn {
+    @apply px-4 py-2 rounded-md font-medium text-sm
+           bg-hud-accent/10 text-hud-accent border border-hud-accent/30
+           hover:bg-hud-accent/20 hover:border-hud-accent/50
+           active:bg-hud-accent/30 transition-all duration-150;
+  }
+
+  .hud-btn-danger {
+    @apply px-4 py-2 rounded-md font-medium text-sm
+           bg-hud-danger/10 text-hud-danger border border-hud-danger/30
+           hover:bg-hud-danger/20 hover:border-hud-danger/50
+           active:bg-hud-danger/30 transition-all duration-150;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+}

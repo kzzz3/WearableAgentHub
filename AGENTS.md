@@ -1,102 +1,166 @@
-﻿# WearableAgent Hub — 项目总览
+# WearableAgent Hub — AGENTS.md
 
 ## 项目定位
 
-PC 端穿戴设备 AI Agent 模拟器 + 服务中枢，完整跑通 **A2A 通信**、**A2UI 界面渲染**、**x402 支付结算** 三大协议链路。
+WearableAgent Hub 是一个面向 PC 本地的穿戴 AI Agent 原型系统。  
+它的核心价值不是做一个完整产品，而是用来验证三件事：
 
-## 技术栈
+1. **A2A 是否适合穿戴场景下的多 Agent 协作**
+2. **A2UI 是否适合 HUD / 表盘等轻量信息界面**
+3. **x402 是否适合微付费与 API 服务结算**
 
-- **前端**: React 18 + TypeScript + Vite（模拟 HUD/表盘 UI）
-- **后端**: Python 3.13 (conda `expr`) + FastAPI + A2A Python SDK
-- **语音**: OpenAI Realtime API（WebSocket 实时语音）
-- **协议**:
-  - A2A v1.0 — a2a-sdk (PyPI, 官方 Python SDK)
-  - A2UI v0.9.1 — 自研穿戴端渲染器（参考 React/Lit 官方渲染器）
-  - x402 — @x402/core + a2a-x402（TypeScript）
-  - MCP — OpenAI MCP 集成工具服务
+因此，这个仓库的正确理解方式是：
 
-## 仓库结构
+- 一个可运行的协议联调平台
+- 一个穿戴 AI 场景的交互原型
+- 一个可以给别人演示、讲解、学习的实验项目
 
-```
-wearable-agent-hub/
-├── AGENTS.md                  # 本文件
-├── README.md                  # 项目说明
-├── docs/                      # 设计文档
+## 设计目标
+
+### 1. 真实协议联调
+项目要能把 A2A、A2UI、x402 三条链路真实跑起来，而不是停留在文档描述。
+
+### 2. 真实模型接入
+默认 LLM 接入应基于真实 API。当前默认使用 MIMO 兼容接口，通过以下配置驱动：
+
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_MODEL`
+- `PROVIDER_TYPE`
+
+也就是说，当前项目已经**配置接入了真实 MIMO API**，并且走的是标准 **chat-completion** 格式。
+
+### 3. 本地可复现
+整个系统应能在一台 PC 上完成启动、演示、调试，不依赖外部硬件。
+
+### 4. 穿戴优先
+UI 优先服务小屏信息展示：
+
+- AI 眼镜 HUD
+- AI 手表表盘
+- 状态栏、卡片、列表、消息气泡等轻量组件
+
+### 5. 渐进交付
+优先保证最短链路可用，再扩展多设备、多 Agent、支付结算、语音模拟等能力。
+
+### 6. 可讲解、可交接
+仓库不仅要有代码，还要有清晰的：
+
+- 目标说明
+- 架构说明
+- 协议说明
+- 验证步骤
+- 后续扩展方向
+
+## 当前设计结论
+
+### 已确认接入方式
+当前 LLM 接入不是“仅写在文档里”，而是已经落到了配置和代码中：
+
+- `.env` 已配置 MIMO endpoint、key、model
+- `packages/core/src/config.py` 读取这些配置
+- `packages/core/src/engine/agent_engine.py` 使用标准 `AsyncOpenAI` 发起 `chat.completions.create`
+- `packages/core/src/main.py` 在启动日志中输出 `provider_type`、`model`、`base_url`
+
+因此可以明确：
+
+> **MIMO API 已经作为配置层真实接入。**
+
+但也要注意一个重要边界：
+
+> 当前是“配置已接入真实 API”，并不等同于“全链路真实联调已验收完毕”。
+
+也就是说：
+- 接入路径已经打通
+- 默认配置已经指向真实 MIMO
+- 但是否能在 A2A / A2UI / x402 全链路中稳定跑通，还需要实际端到端验证
+
+## 项目结构
+
+```text
+WearableAgentHub/
+├── AGENTS.md
+├── README.md
+├── docs/
 ├── packages/
-│   ├── core/                  # Agent 核心引擎（Python）
-│   ├── a2a-server/            # A2A 协议服务端（Python/FastAPI）
-│   ├── a2ui-renderer/         # 穿戴端 A2UI 渲染器（React/TS）
-│   ├── x402-pay/              # x402 支付模块（TypeScript）
-│   └── voice/                 # 语音交互模块（TypeScript/WebSocket）
+│   ├── core/
+│   ├── a2ui-renderer/
+│   ├── x402-pay/
+│   └── voice/
 ├── apps/
-│   ├── glasses-sim/           # AI 眼镜模拟器（React/Vite）
-│   ├── watch-sim/             # AI 手表模拟器（React/Vite）
-│   └── dashboard/             # Agent 管理面板（React/Vite）
-└── examples/
-    ├── translate-agent/       # 翻译 Agent 示例（Python）
-    ├── nav-agent/             # 导航 Agent 示例（Python）
-    └── pay-agent/             # 支付 Agent 示例（Python）
+│   ├── glasses-sim/
+│   ├── watch-sim/
+│   └── dashboard/
+├── examples/
+│   ├── translate-agent/
+│   ├── nav-agent/
+│   └── pay-agent/
+└── scripts/
 ```
 
 ## 开发约定
 
-### 语言与风格
-
-- **Python**: 使用 ruff 格式化 + mypy 类型检查，遵循 Google Python Style Guide
-- **TypeScript**: 使用 ESLint + Prettier，严格模式 (strict: true)
-- **命名**: 文件名 kebab-case，Python 函数 snake_case，TS 接口 PascalCase
-
 ### Python 环境
+- 使用 conda `expr` 环境
+- 实际 Python 路径：`E:\Miniconda3\envs\expr\python.exe`
+- 不使用 `conda run`
 
-- 统一使用 conda `expr` 环境（Python 3.13）
-- 激活: `conda activate expr`
-- 所有 Python 命令前缀: `conda run -n expr ...`
-- 已安装: fastapi, uvicorn, openai, pydantic, httpx, websockets, ruff, mypy, pytest 等
+### 前端环境
+- 使用 pnpm workspace 管理前端项目
+- 前端与后端分离，但共享设计语言和协议约定
 
-### Git 规范
+### 文档语言
+- 面向开发者的说明文档可使用中文
+- 代码标识符保持英文
 
-- 分支: feat/xxx, fix/xxx, docs/xxx
-- 提交: Conventional Commits (feat:, fix:, docs:, refactor:)
-- PR 需要至少一个 review
+### 命名与风格
+- 文件名优先 `kebab-case`
+- Python 函数优先 `snake_case`
+- TypeScript 接口优先 `PascalCase`
+- 配置项通过 `.env` 管理，不硬编码到业务代码
 
-### 测试
+## 协议与接口约定
 
-- Python: pytest + pytest-asyncio（conda `expr` 已安装）
-- TypeScript: Vitest
-- E2E: Playwright（模拟器 UI 测试）
+### A2A
+- 用于 Agent 之间的发现与通信
+- 优先遵循官方 SDK 的集成模式
+- 在边界层处理协议类型与业务模型的转换
 
-### 包管理
+### A2UI
+- 用于将 Agent 结构化结果渲染为穿戴端 UI
+- 当前项目采用自研穿戴渲染器，而非通用后台 UI 方案
 
-- Python: conda `expr` 环境
-- TypeScript: pnpm workspaces（monorepo）
+### x402
+- 用于演示付费服务调用与结算链路
+- 当前阶段以模拟支付和测试链路为主
 
-## 协议版本锁定
+## 验收原则
 
-| 协议 | 版本 | SDK | 仓库 |
-|------|------|-----|------|
-| A2A | v1.0.0 | a2a-sdk (PyPI) | [a2aproject/A2A](https://github.com/a2aproject/A2A) |
-| A2UI | v0.9.1 | 自研渲染器 | [a2ui-project/a2ui](https://github.com/a2ui-project/a2ui) |
-| x402 | v0.1+ | @x402/core + a2a-x402 | [x402-foundation/x402](https://github.com/x402-foundation/x402) |
-| MCP | latest | @modelcontextprotocol/sdk | [modelcontextprotocol.io](https://modelcontextprotocol.io) |
+一个功能是否“完成”，应同时满足以下条件：
 
-## 快速开始
+1. **文档里写清楚了目标**
+2. **代码里实现了核心路径**
+3. **本地实际可以运行**
+4. **有可重复的验证方式**
 
-```bash
-# 后端
-conda activate expr
-cd packages/core && pip install -e . && uvicorn src.main:app --reload
+例如对于 MIMO 接入，完整验收标准不是“写了 API key”，而是：
 
-# 前端
-pnpm install && pnpm dev
+- 配置已生效
+- 后端启动时可读取
+- 真实请求可以发出
+- 异常时有可理解的错误信息
 
-# 运行示例 Agent
-conda activate expr
-cd examples/translate-agent && python main.py
-```
+## 后续目标
 
-## 注意事项
+### 短期
+- 把最短链路进一步打磨成稳定演示链路
+- 明确哪些能力是“真实联调”，哪些仍是“模拟模式”
 
-- 本项目为 PC 模拟器，不涉及真实穿戴设备硬件
-- 语音功能需要 OpenAI API Key（Realtime API）
-- x402 支付使用 Base Sepolia 测试网，需要测试网钱包
-- Python 环境统一使用 conda `expr`，不要使用 uv 或系统 Python
+### 中期
+- 增加更多 Agent 示例
+- 增强 Dashboard 的观测能力
+- 完善语音链路
+
+### 长期
+- 从 PC 模拟走向更接近真实穿戴体验的交互形态
+- 从单机 demo 走向更完整的协议研究平台

@@ -4,6 +4,7 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { GlassesFrame } from "./components/GlassesFrame";
 import { ChatInput } from "./components/ChatInput";
 import { MessageBubble } from "./components/MessageBubble";
+import { VoiceButton } from "./components/VoiceButton";
 
 export default function App() {
   const { messages, history, isProcessing, connected } = useHudStore();
@@ -11,7 +12,7 @@ export default function App() {
 
   return (
     <GlassesFrame>
-      {history.length === 0 && (
+      {history.length === 0 && messages.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full gap-4 py-20">
           <div className="text-3xl font-mono text-hud-accent opacity-60">WearableAgent</div>
           <div className="text-sm text-hud-muted">Glasses HUD Simulator</div>
@@ -26,12 +27,30 @@ export default function App() {
               </button>
             ))}
           </div>
+          <div className="flex gap-2 mt-2 flex-wrap justify-center">
+            <span className="text-[10px] text-hud-muted font-mono mr-1">Paid:</span>
+            {["translate 你好世界 to English", "health analysis for today"].map((q) => (
+              <button
+                key={q}
+                onClick={() => sendMessage(q)}
+                className="text-xs px-3 py-1.5 border border-green-500/30 rounded-full text-green-400/70 hover:bg-green-500/10 transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {history.map((entry, i) => (
-          <MessageBubble key={i} role={entry.role} text={entry.text} />
+          <MessageBubble
+            key={`hist-${i}-${entry.text.slice(0,8)}`}
+            role={entry.role}
+            text={entry.text}
+            source={entry.source}
+            payment={entry.payment}
+          />
         ))}
         {messages.length > 0 && (
           <div className="mt-2">
@@ -47,7 +66,10 @@ export default function App() {
         </div>
       )}
 
-      <ChatInput onSend={sendMessage} disabled={!connected || isProcessing} />
+      <div className="flex items-center gap-2 p-3 border-t border-hud-accent/20 bg-hud-card/50">
+        <VoiceButton />
+        <ChatInput onSend={sendMessage} disabled={!connected || isProcessing} compact />
+      </div>
     </GlassesFrame>
   );
 }

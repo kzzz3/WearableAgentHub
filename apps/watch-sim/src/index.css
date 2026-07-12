@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background: #0a0a0f;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: "JetBrains Mono", monospace;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for watch */
+.watch-scroll::-webkit-scrollbar {
+  width: 2px;
+}
+.watch-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.watch-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 1px;
+}
+
+/* Watch bezel gradient */
+.bezel-gradient {
+  background: conic-gradient(
+    from 0deg,
+    #2a2a2e 0deg,
+    #3a3a3e 90deg,
+    #2a2a2e 180deg,
+    #1c1c1e 270deg,
+    #2a2a2e 360deg
+  );
+}

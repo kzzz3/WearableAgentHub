@@ -1,64 +1,103 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { getConnection } from "../connection";
 import { useHudStore } from "../store";
 
 export function useWebSocket(sessionId: string = "default") {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { setConnected, addA2UIMessages, addHistory, setProcessing } = useHudStore();
+  const connection = getConnection(sessionId);
 
-  const connect = useCallback(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+  useEffect(() => {
+    connection.start();
 
-    ws.onopen = () => {
-      setConnected(true);
-      console.log("[WS] Connected");
-    };
+    const unsubscribeConnected = connection.onConnected((value) => {
+      setConnected(value);
+      if (!value) {
+        setProcessing(false);
+      }
+    });
 
-    ws.onmessage = (event) => {
+    const unsubscribeMessage = connection.onMessage((event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "chat_response") {
-          addHistory({ role: "assistant", text: data.reply || "" });
+
+        if (data?.channel === "a2ui" && Array.isArray(data.messages)) {
+          addA2UIMessages(data.messages);
+          setProcessing(false);
+          return;
+        }
+
+        if (data?.channel === "event") {
+          if (data.type === "connected") {
+            console.log("[WS] session connected", data.data);
+            return;
+          }
+
+          if (data.type === "processing") {
+            setProcessing(true);
+            return;
+          }
+
+          if (data.type === "reply") {
+            const content = data?.data?.content || "";
+            const source = data?.data?.source || "local";
+            const payment = data?.data?.payment || null;
+            if (content) {
+              addHistory({ role: "assistant", text: content, source, payment });
+            }
+            setProcessing(false);
+            return;
+          }
+
+          if (data.type === "error") {
+            addHistory({ role: "assistant", text: `[Error] ${data?.data?.message || "unknown error"}` });
+            setProcessing(false);
+            return;
+          }
+
+          return;
+        }
+
+        if (data?.type === "chat_response") {
+          const source = data.source || "local";
+          const payment = data.payment || null;
+          addHistory({ role: "assistant", text: data.reply || "", source, payment });
           if (data.a2ui_messages?.length) {
             addA2UIMessages(data.a2ui_messages);
           }
           setProcessing(false);
-        } else if (data.type === "error") {
-          addHistory({ role: "assistant", text: `[Error] ${data.message}` });
-          setProcessing(false);
+          return;
         }
-      } catch (e) {
-        console.error("[WS] Parse error:", e);
+
+        console.log("[WS] unhandled message", data);
+      } catch (error) {
+        console.error("[WS] Parse error:", error);
       }
-    };
+    });
 
-    ws.onclose = () => {
-      setConnected(false);
-      console.log("[WS] Disconnected, reconnecting in 3s...");
-      reconnectTimer.current = setTimeout(connect, 3000);
-    };
+    const unsubscribeError = connection.onError(() => {
+      setProcessing(false);
+    });
 
-    ws.onerror = (e) => console.error("[WS] Error:", e);
-  }, [sessionId, setConnected, addA2UIMessages, addHistory, setProcessing]);
-
-  useEffect(() => {
-    connect();
     return () => {
-      clearTimeout(reconnectTimer.current);
-      wsRef.current?.close();
+      unsubscribeConnected();
+      unsubscribeMessage();
+      unsubscribeError();
+      connection.stop();
     };
-  }, [connect]);
+  }, [sessionId, connection, setConnected, addA2UIMessages, addHistory, setProcessing]);
 
-  const sendMessage = useCallback((text: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ message: text, session_id: sessionId }));
+  const sendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim()) {
+        return;
+      }
+
+      connection.send(text);
       addHistory({ role: "user", text });
       setProcessing(true);
-    }
-  }, [sessionId, addHistory, setProcessing]);
+    },
+    [connection, addHistory, setProcessing]
+  );
 
   return { sendMessage };
 }

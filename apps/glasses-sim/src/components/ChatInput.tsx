@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 
-export function ChatInput({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) {
+interface ChatInputProps {
+  onSend: (text: string) => void;
+  disabled: boolean;
+  compact?: boolean;
+}
+
+export function ChatInput({ onSend, disabled, compact }: ChatInputProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -13,6 +19,29 @@ export function ChatInput({ onSend, disabled }: { onSend: (text: string) => void
       setText("");
     }
   };
+
+  if (compact) {
+    return (
+      <form onSubmit={handleSubmit} className="flex gap-1.5 flex-1">
+        <input
+          ref={inputRef}
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Say something..."
+          disabled={disabled}
+          className="flex-1 bg-transparent border border-hud-accent/30 rounded px-2 py-1.5 text-xs text-hud-text placeholder:text-hud-muted/50 focus:outline-none focus:border-hud-accent/60 font-mono"
+        />
+        <button
+          type="submit"
+          disabled={disabled || !text.trim()}
+          className="px-3 py-1.5 bg-hud-accent/20 border border-hud-accent/40 rounded text-xs text-hud-accent hover:bg-hud-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-mono"
+        >
+          {disabled ? "..." : "SEND"}
+        </button>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 p-3 border-t border-hud-accent/20 bg-hud-card/50">
